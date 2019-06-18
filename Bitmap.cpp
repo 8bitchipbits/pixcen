@@ -59,7 +59,8 @@ void Bitmap::GetSaveFormats(narray<autoptr<SaveFormat>,int> &fmt)
 		fmt.add(new SaveFormat(_T("Art Studio"),_T("art"),true));
 		fmt.add(new SaveFormat(_T("Doodle"),_T("dd"),true));
 		fmt.add(new SaveFormat(_T("Doodle compressed"),_T("jj"),true));
-		fmt.add(new SaveFormat(_T("C64 Exe"),_T("prg"),false));
+		fmt.add(new SaveFormat(_T("C64 Exe compressed"),_T("prg"),false));
+		fmt.add(new SaveFormat(_T("C64 Exe"),_T("p00"),false));
 		fmt.add(new SaveFormat(_T("Multipaint"), _T("bin"), true));
 	}
 }
@@ -321,6 +322,36 @@ void Bitmap::Save(nmemfile &file, LPCTSTR type)
 
 		B2Crunch(&bbin, &bbout, 0x1f00);
 		B2FreeFile(&bbin);
+
+		file.attach(bbout.data, bbout.size, true);
+	}
+	else if (lstrcmpi(_T("p00"), type) == 0)
+	{
+		if (xsize != 320 || ysize != 200)
+			throw _T("Buffers are not in standard hires format");
+
+		static unsigned char viewer[] = {
+			0x00,0x1f,0x78,0xa9,0x3b,0x8d,0x11,0xd0,0xa9,0x08,0x8d,0x16,0xd0,0xa9,0x18,0x8d,
+			0x18,0xd0,0xa2,0x00,0xbd,0x40,0x3f,0x9d,0x00,0x04,0xbd,0x40,0x40,0x9d,0x00,0x05,
+			0xbd,0x40,0x41,0x9d,0x00,0x06,0xbd,0x40,0x42,0x9d,0x00,0x07,0xe8,0xd0,0xe5,0xad,
+			0x28,0x43,0x8d,0x20,0xd0,0x4c,0x33,0x1f };
+
+		file.write(viewer, sizeof(viewer));
+
+		int pad = sizeof(viewer) - 2;	//minus prg header
+		while (pad < 256)
+		{
+			file << BYTE(0);
+			pad++;
+		}
+
+		file.write(map, 8000);
+		file.write(screen, 1000);
+		file << *border;
+
+		B2File bbin, bbout;
+		bbin.size = file.len();
+		bbin.data = (byte *)file.detach();
 
 		file.attach(bbout.data, bbout.size, true);
 	}
