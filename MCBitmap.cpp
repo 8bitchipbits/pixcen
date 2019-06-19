@@ -95,6 +95,7 @@ void MCBitmap::GetSaveFormats(narray<autoptr<SaveFormat>,int> &fmt)
 		fmt.add(new SaveFormat(_T("C64 Exe crunched"),_T("prg"),false));
 		fmt.add(new SaveFormat(_T("C64 Exe"),_T("p00"),false));
 		fmt.add(new SaveFormat(_T("ASM"),_T("s;asm"),false));
+		fmt.add(new SaveFormat(_T("Basic"),_T("bas"),false));
 		fmt.add(new SaveFormat(_T("Multipaint"), _T("bin"), true));
 	}
 }
@@ -950,7 +951,61 @@ void MCBitmap::Save(nmemfile &file, LPCTSTR type)
 		}
 
 	}
-	
+	else if (lstrcmpi(_T("bas"), type) == 0 )
+	{
+		if (xsize != 160 || ysize != 200)
+			throw _T("Buffers are not in standard multi-color format");
+
+		assert(crippled[3]);
+
+		static unsigned char viewer = "10 DATA #to decimal 
+		$0b,$08,$0a,$00,$9e,$32,$30,$36,$39,$00,$13,$08,$14,$00,
+		$89,$32,$30,$00,$00,$00,$a0,$00,$8c,$11,$d0,$a2,$24,$b9,$73,$08,
+		$99,$00,$40,$c8,$d0,$f7,$ee,$1e,$08,$ee,$21,$08,$ca,$d0,$ee,$a9,
+		$00,$8d,$11,$d0,$ad,$44,$5f,$8d,$20,$d0,$ad,$00,$dd,$29,$fc,$09,
+		$02,$8d,$00,$dd,$a9,$80,$8d,$18,$d0,$a9,$d8,$8d,$16,$d0,$ad,$40,
+		$5f,$8d,$21,$d0,$ad,$43,$5f,$a0,$00,$99,$00,$d8,$99,$00,$d9,$99,
+		$00,$da,$99,$00,$db,$c8,$d0,$f1,$a9,$3b,$8d,$11,$d0,$60,$48,$81,
+		$71,$80,$71,$80";
+
+		unsigned short addr = 0x3f8e;
+
+		file << addr;
+		file.write(viewer, sizeof(viewer));
+		addr += sizeof(viewer);
+
+		while (addr < 0x4000)
+		{
+			file << BYTE(0);
+			addr++;
+		}
+
+		file.write(map, 8000);
+		file << *background;
+
+		file << BYTE(0);
+		file << BYTE(0);
+
+		file << *color;
+		file << *border;
+
+		addr = 0x5f45;
+		while (addr < 0x6000)
+		{
+			file << BYTE(0);
+			addr++;
+		}
+
+		file.write(screen, 1000);
+
+		addr = 0x63e8;
+		while (addr < 0x6400)
+		{
+			file << BYTE(0);
+			addr++;
+		}
+
+	}
 	else if (lstrcmpi(_T("prg"), type) == 0)
 	{
 		if (xsize != 160 || ysize != 200)
