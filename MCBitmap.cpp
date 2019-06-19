@@ -92,7 +92,8 @@ void MCBitmap::GetSaveFormats(narray<autoptr<SaveFormat>,int> &fmt)
 		fmt.add(new SaveFormat(_T("Cenimate"),_T("cen"),true));
 		if(crippled[3])fmt.add(new SaveFormat(_T("Paint Magic"),_T("pmg"),true));
 		fmt.add(new SaveFormat(_T("Multigraf"), _T("mg"), true));
-		fmt.add(new SaveFormat(_T("C64 Exe"),_T("prg"),false));
+		fmt.add(new SaveFormat(_T("C64 Exe crunched"),_T("prg"),false));
+		fmt.add(new SaveFormat(_T("C64 Exe"),_T("p00"),false));
 		fmt.add(new SaveFormat(_T("Multipaint"), _T("bin"), true));
 	}
 }
@@ -927,6 +928,43 @@ void MCBitmap::Save(nmemfile &file, LPCTSTR type)
 
 		B2Crunch(&bbin, &bbout, 0x1f00);
 		B2FreeFile(&bbin);
+
+		file.attach(bbout.data, bbout.size, true);
+	}
+	else if (lstrcmpi(_T("p00"), type) == 0)
+	{
+		if (xsize != 160 || ysize != 200)
+			throw _T("Buffers are not in standard multi-color format");
+
+		static unsigned char viewer[] = {
+		0x00,0x1f,0x78,0xa9,0x3b,0x8d,0x11,0xd0,0xa9,0x18,0x8d,0x16,0xd0,0xa9,0x18,0x8d,
+		0x18,0xd0,0xa2,0x00,0xbd,0x40,0x3f,0x9d,0x00,0x04,0xbd,0x40,0x40,0x9d,0x00,0x05,
+		0xbd,0x40,0x41,0x9d,0x00,0x06,0xbd,0x40,0x42,0x9d,0x00,0x07,0xbd,0x28,0x43,0x9d,
+		0x00,0xd8,0xbd,0x28,0x44,0x9d,0x00,0xd9,0xbd,0x28,0x45,0x9d,0x00,0xda,0xbd,0x28,
+		0x46,0x9d,0x00,0xdb,0xe8,0xd0,0xcd,0xad,0x10,0x47,0x8d,0x21,0xd0,0xad,0x11,0x47,
+		0x8d,0x20,0xd0,0x4c,0x51,0x1f };
+
+		file.write(viewer, sizeof(viewer));
+
+		int pad = sizeof(viewer) - 2;	//minus prg header
+		while (pad < 256)
+		{
+			file << BYTE(0);
+			pad++;
+		}
+
+		file.write(map, 8000);
+		file.write(screen, 1000);
+		file.write(color, 1000);
+		file << *background;
+		file << *border;
+
+		B2File bbin, bbout;
+		bbin.size = file.len();
+		bbin.data = (byte *)file.detach();
+
+		//B2Crunch(&bbin, &bbout, 0x1f00);
+		//B2FreeFile(&bbin);
 
 		file.attach(bbout.data, bbout.size, true);
 	}
